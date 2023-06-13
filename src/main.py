@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional
 from urllib.parse import urljoin
 
 import requests_cache
@@ -21,8 +21,8 @@ def pep(session: CachedSession) -> Optional[List]:
     if not response:
         return
     pep_count = 0
-    diff_statuses = []
-    statuses_dict = {}
+    diff_statuses: List = []
+    statuses: Dict = {}
     soup = BeautifulSoup(response.text, features='lxml')
     section_pep = find_tag(soup, 'section', attrs={'id': 'numerical-index'})
     table_tag = section_pep.find('table', attrs={'class': 'pep-zero-table'})
@@ -44,18 +44,15 @@ def pep(session: CachedSession) -> Optional[List]:
             tag for tag in dl_tag.find_all('dt') if tag.text == 'Status:'
         ]
         status = status_string_tag[0].find_next_sibling().string
-        if status not in EXPECTED_STATUS[preview_status]:
+        if (preview_status in EXPECTED_STATUS and
+                status not in EXPECTED_STATUS[preview_status]):
             diff_statuses.append(
                 MESSAGE_STRING.format(pep_link, status,
                                       EXPECTED_STATUS[preview_status])
             )
-        if not statuses_dict.get(status):
-            statuses_dict[status] = 1
-        else:
-            statuses_dict[status] = statuses_dict[status] + 1
+        statuses[status] = statuses.get(status, 0) + 1
     results = [('Статус', 'Количество')]
-    statuses_list = [(key, value) for key, value in statuses_dict.items()]
-    results.extend(statuses_list)
+    results.extend(statuses.items())
     results.append(('Total', pep_count))
     if diff_statuses:
         status_message = '\n'.join(diff_statuses)
